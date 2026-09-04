@@ -439,20 +439,20 @@ A production ArcGIS Enterprise deployment is normally split into three network t
 ```
                     Internet / internal users
                               │
-                    ┌─────────▼─────────┐
+                    ┌─────────▼──────────┐
    WEB TIER (DMZ)   │  Reverse proxy /   │   Only tier exposed
                     │  ArcGIS Web Adaptor│   externally.
                     │  on Apache Tomcat  │   Terminates HTTPS.
-                    └─────────┬─────────┘
+                    └─────────┬──────────┘
                               │  (internal ports only:
                               │   6443, 7443, 2443…)
-                    ┌─────────▼─────────┐
+                    ┌─────────▼──────────┐
    GIS / APP TIER   │  Portal for ArcGIS │   Not exposed directly
                     │  ArcGIS Server     │   to the internet.
                     │  (hosting server)  │
-                    └─────────┬─────────┘
+                    └─────────┬──────────┘
                               │
-                    ┌─────────▼─────────┐
+                    ┌─────────▼──────────┐
    DATA TIER        │  ArcGIS Data Store │   Most restricted zone;
                     │  Enterprise geodb  │   no direct external access.
                     └────────────────────┘
