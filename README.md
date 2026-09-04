@@ -1,82 +1,179 @@
-# Práctica: Servidor Ubuntu en VirtualBox + Conexión remota con MobaXterm
+# ArcGIS Enterprise Lab Notebook — From a Practice VM to a Real Deployment Plan
 
-Guía paso a paso para levantar una máquina virtual con Ubuntu Server en VirtualBox y conectarse a ella de forma remota (SSH) desde MobaXterm en la máquina local.
-
----
-
-## 1. Configuraciones de VirtualBox, link de descarga y versión de Ubuntu Server
-
-### Descargas necesarias
-
-| Software        | Versión recomendada                    | Enlace |
-|------------------|-----------------------------------------|--------|
-| VirtualBox       | Última estable (7.x)                    | https://www.virtualbox.org/wiki/Downloads |
-| Ubuntu Server    | 24.04.3 LTS (Noble Numbat) — recomendada por estabilidad y soporte hasta 2029 | https://ubuntu.com/download/server |
-| Ubuntu Server    | 26.04 LTS (Resolute Raccoon) — alternativa más reciente, soporte hasta 2031 | https://ubuntu.com/download/server |
-| MobaXterm        | Home Edition (gratis)                   | https://mobaxterm.mobatek.net/download-home-edition.html |
-
-> **Nota:** para esta práctica se recomienda usar una versión **LTS** (Long Term Support), ya que tiene más documentación disponible y es más estable para aprender.
-
-### Configuración de la VM en VirtualBox
-
-| Parámetro          | Valor recomendado                        |
-|---------------------|-------------------------------------------|
-| Tipo/Versión         | Linux / Ubuntu (64-bit)                   |
-| Memoria RAM          | 2048 MB (mínimo 1024 MB)                  |
-| Disco duro            | 20 GB, tipo VDI, reservado dinámicamente  |
-| Procesadores          | 1-2 CPUs                                  |
-| Red (Adaptador 1)     | **Adaptador puente (Bridged Adapter)**    |
-| Unidad óptica          | ISO de Ubuntu Server montada como unidad de arranque |
-
-**¿Por qué "Adaptador puente" y no NAT?**
-Con Bridged, la VM obtiene su propia IP dentro de tu red local (como si fuera otro dispositivo físico), lo que facilita muchísimo la conexión SSH desde MobaXterm sin tener que configurar reenvío de puertos.
+This document has two parts: a hands-on lab log for setting up an Ubuntu Server VM with remote SSH access via MobaXterm, and a reference guide for planning a real ArcGIS Enterprise deployment on Linux, grounded in that same lab environment.
 
 ---
 
-## 2. Instalación de Ubuntu Server
+# Part 1 — Practice: Ubuntu Server on VirtualBox + Remote Connection with MobaXterm
 
-1. Crea la VM en VirtualBox con la configuración de la tabla anterior.
-2. Inicia la VM y selecciona la ISO de Ubuntu Server descargada.
-3. Sigue el instalador de texto (Subiquity):
-   - Selecciona idioma y distribución de teclado.
-   - Configura la red (normalmente detecta DHCP automáticamente).
-   - Deja el "mirror" de paquetes por defecto.
-   - En el particionado de disco, usa la opción **"Use an entire disk"** (más simple para prácticas).
-   - Crea tu usuario, nombre de host y contraseña.
-   - **Importante:** cuando el instalador pregunte por paquetes adicionales (SSH Setup), marca la opción **"Install OpenSSH server"**. Esto es clave para poder conectarte después desde MobaXterm.
-   - No es necesario instalar snaps adicionales para esta práctica.
-4. Espera a que termine la instalación, retira la ISO virtual y reinicia.
-5. Inicia sesión con el usuario y contraseña creados.
+A step-by-step guide to spinning up a virtual machine with Ubuntu Server in VirtualBox and connecting to it remotely (SSH) from MobaXterm on the local machine.
 
 ---
 
-## 3. Conexión entre máquina local y máquina virtual
+## 0. Real data from this practice
 
-### 3.1 Obtener la IP de la VM
+These are the actual values used in this specific installation (personal log):
 
-Dentro de la VM (Ubuntu Server), ejecuta:
+| Parameter | Value used |
+|---|---|
+| ISO used | `ubuntu-26.04.1-live-server-amd64.iso` |
+| VM Name | `ubuntu_server` |
+| VM Folder | `C:\Users\obonilla\VirtualBox VMs` |
+| OS Version (VirtualBox) | Ubuntu 25.04 (Plucky Puffin) (64-bit) *(automatic detection — doesn't exactly match the 26.04 ISO; VirtualBox didn't yet list that version)* |
+| RAM allocated | 6406 MB |
+| CPUs allocated | 4 |
+| Virtual disk | 25.00 GB, VDI type, dynamically allocated |
+| Disk location | `C:\Users\obonilla\VirtualBox VMs\ubuntu_server\ubuntu_server.vdi` |
+| System user | `vboxuser` |
+| Hostname | `ubuntu-server` (with a hyphen — corrected from `ubuntu_server`, which caused an error) |
+| Network mode | Bridged Adapter |
+| **Final VM IP** | **`10.90.85.26`** |
+| Actual version installed | Ubuntu 26.04.1 LTS, kernel `7.0.0-31-generic` |
+
+---
+
+## 1. VirtualBox configuration, download links, and Ubuntu Server version
+
+### Required downloads
+
+| Software | Recommended version | Link |
+|---|---|---|
+| VirtualBox | Latest stable (7.x) | https://www.virtualbox.org/wiki/Downloads |
+| Ubuntu Server | 24.04.3 LTS (Noble Numbat) — recommended for stability, supported through 2029 | https://ubuntu.com/download/server |
+| Ubuntu Server | 26.04 LTS (Resolute Raccoon) — newer alternative, supported through 2031 | https://ubuntu.com/download/server |
+| MobaXterm | Home Edition (free) | https://mobaxterm.mobatek.net/download-home-edition.html |
+
+> **Note:** for this practice it's recommended to use an **LTS** (Long Term Support) version, since it has more documentation available and is more stable for learning.
+
+### VM configuration in VirtualBox
+
+| Parameter | Recommended value |
+|---|---|
+| Type/Version | Linux / Ubuntu (64-bit) |
+| RAM | 2048 MB (1024 MB minimum) |
+| Hard disk | 20 GB, VDI type, dynamically allocated |
+| Processors | 1-2 CPUs |
+| Network (Adapter 1) | **Bridged Adapter** |
+| Optical drive | Ubuntu Server ISO mounted as the boot drive |
+
+**Why "Bridged Adapter" and not NAT?**
+With Bridged mode, the VM gets its own IP on your local network (as if it were another physical device on it), which makes the SSH connection from MobaXterm much easier — no port forwarding required.
+
+---
+
+## 2. Ubuntu Server installation
+
+1. Create the VM in VirtualBox using the configuration from the table above.
+2. Boot the VM and select the downloaded Ubuntu Server ISO.
+3. Follow the text-based installer (Subiquity):
+   - Select language and keyboard layout.
+   - Configure networking (it normally detects DHCP automatically).
+   - Leave the package "mirror" at its default.
+   - For disk partitioning, use the **"Use an entire disk"** option (simpler for practice).
+   - Create your user, hostname, and password.
+   - **Important:** when the installer asks about additional packages (SSH Setup), check the **"Install OpenSSH server"** option. This is key to being able to connect later from MobaXterm.
+   - You don't need to install any additional snaps for this practice.
+4. Wait for the installation to finish, eject the virtual ISO, and reboot.
+5. Log in with the user and password you created.
+
+### 2.1 Real log of this installation
+
+A record of what actually happened, step by step, during this specific practice:
+
+1. **Unattended installation running:** the `subiquity`/`curtin` log was visible, running `curtin extract`, `stage-curthooks`, keyboard configuration, apt, iSCSI, RAID (mdadm), NVMe over TCP, etc. This is a normal, automatic process that requires no intervention.
+2. **SSH keys generated by cloud-init:** on first boot, the SSH host keys (RSA, ECDSA, ED25519) were generated under `/etc/ssh/`, complete with their fingerprints and "randomart." This is a good sign that the base system installed correctly.
+3. **Login screen reached:** the `ubuntu-server login:` prompt appeared.
+4. **First login attempt failed:** `12346` was typed by mistake as the username (not a valid user) → `Login incorrect`. Fix: enter the correct user created during installation (`vboxuser`).
+5. **Successful login:** using the `vboxuser` user and its password, the terminal was accessed correctly (`vboxuser@ubuntu-server:/$`).
+6. **Problem found: SSH not installed.** Running `sudo systemctl status ssh` returned the error:
+   ```
+   Unit ssh.service could not be found.
+   ```
+   This means the "Install OpenSSH server" option **wasn't checked** during the installer (an easy step to miss). It was fixed by installing it manually (see section 2.2).
+
+### 2.2 Fix: install OpenSSH Server manually
+
+If you run into the `Unit ssh.service could not be found` error, follow these steps inside the VM:
+
+```bash
+# 1. Update the package index
+sudo apt update
+
+# 2. Install the SSH server
+sudo apt install openssh-server -y
+
+# 3. Enable and start the service
+sudo systemctl enable --now ssh
+
+# 4. Verify it's running (look for "active (running)" in green)
+sudo systemctl status ssh
+# press 'q' to exit the view
+
+# 5. Allow the port through the firewall (if UFW is active)
+sudo ufw allow ssh
+```
+
+> **Note:** this step replaces/complements the installer's original instruction to check "Install OpenSSH server" — if you already checked it correctly during installation, you can skip this section.
+
+### 2.3 Successful SSH connection from MobaXterm
+
+With SSH now installed and active, the session was created in MobaXterm with:
+
+- **Remote host:** `10.90.85.26`
+- **Username:** `vboxuser`
+- **Port:** `22`
+
+On first connecting, MobaXterm optionally showed the **"Master Password"** window (to encrypt passwords saved locally in MobaXterm) — **Cancel** was selected, since it's optional and doesn't affect the connection to the VM.
+
+**Connection result (MobaXterm banner):**
+
+```
+SSH session to vboxuser@10.90.85.26
+  • Direct SSH       : ✓
+  • SSH compression  : ✗
+  • SSH-browser      : ✓
+  • X11-forwarding   : ✓ (remote display is forwarded through SSH)
+
+Welcome to Ubuntu 26.04.1 LTS (GNU/Linux 7.0.0-31-generic x86_64)
+IPv4 address for enp0s3: 10.90.85.26
+```
+
+**Verification commands run, and their output:**
+
+```bash
+vboxuser@ubuntu-server:~$ whoami
+vboxuser
+vboxuser@ubuntu-server:~$ hostname
+ubuntu-server
+vboxuser@ubuntu-server:~$ uname -a
+Linux ubuntu-server 7.0.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Aug 1 04:26:38 UTC 2026 x86_64 GNU/Linux
+```
+
+✅ **Practice completed successfully:** VM running Ubuntu Server 26.04.1 LTS, SSH server active, and remote connection confirmed from MobaXterm on the local machine.
+
+---
+
+## 3. Connection between the local machine and the virtual machine
+
+### 3.1 Get the VM's IP address
+
+Inside the VM (Ubuntu Server), run:
 
 ```bash
 ip a
 ```
 
-Busca la interfaz de red (por ejemplo `enp0s3`) y anota la IP que empieza normalmente con `192.168.x.x`.
+Look for the network interface (e.g. `enp0s3`) and note the IP, which normally starts with `192.168.x.x`.
 
-### 3.2 Verificar que el servicio SSH está activo
+### 3.2 Verify the SSH service is active
 
 ```bash
 sudo systemctl status ssh
 ```
 
-Debe aparecer como `active (running)`. Si no está instalado o activo:
+It should show as `active (running)`. If you see `Unit ssh.service could not be found`, it means OpenSSH wasn't installed — see section **2.2** to install it manually.
 
-```bash
-sudo apt update
-sudo apt install openssh-server -y
-sudo systemctl enable --now ssh
-```
-
-### 3.3 Permitir el puerto SSH en el firewall (si UFW está activo)
+### 3.3 Allow the SSH port through the firewall (if UFW is active)
 
 ```bash
 sudo ufw allow ssh
@@ -84,36 +181,36 @@ sudo ufw enable
 sudo ufw status
 ```
 
-### 3.4 Probar conectividad desde la máquina local
+### 3.4 Test connectivity from the local machine
 
-Desde una terminal de tu computadora local (CMD, PowerShell o terminal de MobaXterm):
+From a terminal on your local computer (CMD, PowerShell, or a MobaXterm terminal):
 
 ```bash
-ping <IP_DE_LA_VM>
+ping <VM_IP>
 ```
 
-Si responde, la red está bien configurada.
+If it responds, the network is configured correctly.
 
 ---
 
-## 4. Instalación de MobaXterm
+## 4. MobaXterm installation
 
-1. Descarga la versión **Home Edition (Installer edition)** desde el link oficial.
-2. Ejecuta el instalador y sigue los pasos por defecto.
-3. Abre MobaXterm.
-4. Ve a **Session → New session → SSH**.
-5. Completa los campos:
-   - **Remote host:** IP de la VM (obtenida en el paso 3.1)
-   - **Specify username:** el usuario creado durante la instalación de Ubuntu
+1. Download the **Home Edition (Installer edition)** from the official link.
+2. Run the installer and follow the default steps.
+3. Open MobaXterm.
+4. Go to **Session → New session → SSH**.
+5. Fill in the fields:
+   - **Remote host:** the VM's IP (obtained in step 3.1)
+   - **Specify username:** the user created during the Ubuntu installation
    - **Port:** 22
-6. Haz clic en **OK**.
-7. Acepta la advertencia de host key (primera conexión) y escribe la contraseña del usuario.
+6. Click **OK**.
+7. Accept the host key warning (first connection) and enter the user's password.
 
 ---
 
-## 5. Comprobación
+## 5. Verification
 
-Una vez conectado desde MobaXterm, verifica que estás dentro de la VM:
+Once connected from MobaXterm, verify that you're inside the VM:
 
 ```bash
 whoami
@@ -121,63 +218,490 @@ hostname
 uname -a
 ```
 
-Deberías ver el nombre de usuario y el hostname que definiste durante la instalación de Ubuntu Server, confirmando que estás controlando la VM de forma remota y no tu máquina local.
+You should see the username and hostname you set during the Ubuntu Server installation, confirming that you're controlling the VM remotely and not your local machine.
+
+> ✅ **Validated in this practice** (see the log in section 2.3): `whoami` → `vboxuser`, `hostname` → `ubuntu-server`, `uname -a` → Ubuntu 26.04.1 LTS, kernel `7.0.0-31-generic`.
 
 ---
 
-## 6. Comandos de prueba
+## 6. Test commands
 
-Comandos básicos para validar que todo funciona correctamente vía SSH:
+Basic commands to validate that everything works correctly over SSH:
 
 ```bash
-# Información del sistema
-uname -a                # Info del kernel y arquitectura
-lsb_release -a           # Versión de Ubuntu instalada
+# System information
+uname -a                 # Kernel and architecture info
+lsb_release -a            # Installed Ubuntu version
 
-# Navegación
-pwd                      # Directorio actual
-ls -la                   # Listar archivos (incluyendo ocultos)
-cd /var/log              # Cambiar de directorio
+# Navigation
+pwd                       # Current directory
+ls -la                    # List files (including hidden ones)
+cd /var/log                # Change directory
 
-# Gestión de archivos
-touch prueba.txt         # Crear archivo
-echo "hola mundo" > prueba.txt   # Escribir contenido
-cat prueba.txt           # Ver contenido
-rm prueba.txt            # Eliminar archivo
+# File management
+touch test.txt             # Create a file
+echo "hello world" > test.txt   # Write content
+cat test.txt                # View content
+rm test.txt                  # Delete the file
 
-# Info de red
-ip a                     # Ver IP y adaptadores
-hostname -I               # IP rápida
+# Network info
+ip a                      # View IP and adapters
+hostname -I                 # Quick IP
 
-# Info de sistema y recursos
-top                       # Procesos en tiempo real (salir con 'q')
-df -h                     # Espacio en disco
-free -h                   # Uso de memoria RAM
+# System and resource info
+top                        # Real-time processes (quit with 'q')
+df -h                      # Disk space
+free -h                    # RAM usage
 
-# Gestión de paquetes
-sudo apt update           # Actualizar índices de paquetes
-sudo apt list --upgradable # Ver paquetes actualizables
+# Package management
+sudo apt update             # Update package indexes
+sudo apt list --upgradable    # View upgradable packages
 ```
 
-Si todos estos comandos se ejecutan sin errores, la práctica se considera exitosa: tienes una VM con Ubuntu Server funcionando y accesible de forma remota vía SSH desde MobaXterm.
+If all these commands run without errors, the practice is considered successful: you have an Ubuntu Server VM up and running, and accessible remotely via SSH from MobaXterm.
 
 ---
 
-## Resumen del flujo completo
+## Summary of the full workflow
 
 ```
-[Tu PC] --VirtualBox--> [VM Ubuntu Server] --Bridged (misma red)--> IP propia
+[Your PC] --VirtualBox--> [Ubuntu Server VM] --Bridged (same network)--> own IP
    |
-   └── MobaXterm (SSH, puerto 22) ---> Conexión remota a la VM
+   └── MobaXterm (SSH, port 22) ---> Remote connection to the VM
 ```
 
 ---
 
-## Problemas comunes
+## Common issues
 
-| Problema | Posible causa | Solución |
-|----------|----------------|----------|
-| No responde el `ping` | Modo de red incorrecto | Verifica que sea "Bridged Adapter" y no NAT |
-| MobaXterm no conecta | SSH no instalado/activo | `sudo systemctl enable --now ssh` |
-| Conexión rechazada | Firewall bloqueando puerto 22 | `sudo ufw allow ssh` |
-| IP cambia cada reinicio | DHCP dinámico | Considera fijar IP estática en netplan (opcional, para prácticas avanzadas) |
+| Issue | Possible cause | Solution |
+|---|---|---|
+| `ping` doesn't respond | Wrong network mode | Verify it's set to "Bridged Adapter", not NAT |
+| MobaXterm won't connect | SSH not installed/active | `sudo systemctl enable --now ssh` |
+| Connection refused | Firewall blocking port 22 | `sudo ufw allow ssh` |
+| IP changes on every reboot | Dynamic DHCP | Consider setting a static IP in netplan (optional, for advanced practice) |
+
+---
+
+# Part 2 — ArcGIS Enterprise on Linux: Architecture & Deployment Guide
+
+This second part documents a separate but related exercise: planning and evaluating a real ArcGIS Enterprise deployment on Linux, following Esri's officially published architecture and system-requirements documentation (ArcGIS Enterprise 12.1, current as of Esri's documentation dated August 2026). Treat it as a standalone planning reference, not just a list of commands.
+
+## Contents
+
+- [2.1 The scenario we're designing for](#21-the-scenario-were-designing-for)
+- [2.2 Esri's documented base deployment architecture](#22-esris-documented-base-deployment-architecture)
+- [2.3 Supported Linux operating systems](#23-supported-linux-operating-systems)
+- [2.4 Hardware and disk space planning](#24-hardware-and-disk-space-planning)
+- [2.5 Network architecture and security zones](#25-network-architecture-and-security-zones)
+- [2.6 Required ports](#26-required-ports)
+- [2.7 Apache Tomcat and ArcGIS Web Adaptor (Java)](#27-apache-tomcat-and-arcgis-web-adaptor-java)
+- [2.8 Linux OS-level prerequisites](#28-linux-os-level-prerequisites)
+- [2.9 Installation and configuration sequence](#29-installation-and-configuration-sequence)
+- [2.10 Mapping this to your practice VM](#210-mapping-this-to-your-practice-vm)
+- [2.11 Pre-deployment checklist](#211-pre-deployment-checklist)
+- [2.12 Sources](#212-sources)
+
+---
+
+## 2.1 The scenario we're designing for
+
+To keep this guide grounded instead of purely abstract, every sizing and architecture decision below is applied to one running example:
+
+> **Case: a county water & utilities department**
+> - ~150 internal named users (field crews, engineers, GIS analysts), a few dozen concurrent
+> - A public-facing map viewer for citizens (moderate traffic, a few thousand sessions/month)
+> - Hosted feature layers for water/sewer infrastructure, edited from the field with mobile apps
+> - An existing enterprise geodatabase (PostgreSQL) with the authoritative infrastructure data, registered as a data source — separate from ArcGIS Data Store
+> - Requirements: HTTPS everywhere, nightly backups, and room to add LDAP-based web-tier authentication later
+> - Growth is modest, so the design target is a solid **3-machine deployment**, not a full highly-available (HA) cluster — HA roughly doubles the machine count and operational complexity, which isn't justified yet for this workload
+
+This is a realistic "first production deployment" profile — bigger than a single-machine trial, smaller than an enterprise HA cluster. It's used as the reference point throughout the rest of this document.
+
+---
+
+## 2.2 Esri's documented base deployment architecture
+
+A **base ArcGIS Enterprise deployment** — the minimum functional unit — consists of:
+
+| Component | Role |
+|---|---|
+| **Portal for ArcGIS** | The organizational hub: users, groups, content, maps, apps |
+| **ArcGIS Server**, licensed as *ArcGIS GIS Server* | Configured as the **hosting server** — powers hosted layers, analysis, and the portal's own map/feature services |
+| **ArcGIS Data Store** — relational store | Stores hosted feature layer data |
+| **Object store** | Stores hosted scene/3D tile caches and cached query responses (via ArcGIS Data Store, or a cloud object store such as S3/Azure Blob if deployed in the cloud) |
+| **2× ArcGIS Web Adaptor** | One in front of the portal, one in front of the hosting server — reverse-proxies traffic and enables web-tier authentication (a third-party load balancer can replace both) |
+
+### Deployment topologies
+
+Esri documents three ways to lay this out physically:
+
+1. **Single machine** — everything above on one box. Fastest to stand up (Esri's own **ArcGIS Enterprise Builder** tool automates this in under an hour); appropriate for trials, training, and small dev/test environments. This is the closest analog to the practice VM from Part 1 of this guide.
+2. **Multimachine** — the components spread across two or more machines, typically split along the tiers described in [2.5](#25-network-architecture-and-security-zones). This is the standard shape for a real production system.
+3. **Highly available (HA)** — every component duplicated for redundancy (two portal machines, two-plus GIS server machines, primary/standby data store, etc.), so losing one machine doesn't take the system down.
+
+Any of the three can later be scaled — Esri's own guidance is to add **more ArcGIS Server machines to the hosting server site** first, since spatial analysis tools are the heaviest CPU/RAM consumers under load.
+
+### For our case study
+
+A 3-machine multimachine deployment, no HA yet:
+
+```
+ Machine 1: Portal for ArcGIS  +  Web Adaptor #1 (Tomcat)
+ Machine 2: ArcGIS Server (hosting server)  +  Web Adaptor #2 (Tomcat)
+ Machine 3: ArcGIS Data Store (relational store + object store)
+```
+
+This gives each component room to grow independently and lets you place Machine 3 (which holds actual data) on a different storage/backup policy than the app-tier machines, without the operational overhead of full HA.
+
+---
+
+## 2.3 Supported Linux operating systems
+
+Per Esri's current system requirements (ArcGIS Enterprise 12.1, Linux):
+
+| Supported OS | Latest tested update |
+|---|---|
+| Red Hat Enterprise Linux Server 8 | Update 10 |
+| Red Hat Enterprise Linux Server 9 | Update 7 |
+| AlmaLinux 8 | Update 10 |
+| AlmaLinux 9 | Update 7 |
+| SUSE Linux Enterprise Server 15 | Service Pack 7 |
+| **Ubuntu Server 24.04 LTS** | 24.04.4 |
+| **Ubuntu Server 22.04 LTS** | 22.04.5 |
+| Oracle Linux 8 | Update 10 |
+| Oracle Linux 9 | Update 7 |
+| Rocky Linux 8 | Update 10 |
+| Rocky Linux 9 | Update 7 |
+
+General rules that apply regardless of distro:
+
+- 64-bit only; setup refuses to run on a 32-bit OS.
+- **You cannot install as the `root` user.** Use a dedicated non-root account (e.g. `arcgis`) with a home directory.
+- The **machine hostname cannot contain an underscore (`_`)** — the installer refuses to proceed. (Same rule that made you rename `ubuntu_server` → `ubuntu-server` in Part 1 — it's not a VirtualBox quirk, it's an Esri/general host-naming requirement.)
+- Don't install on a modified/re-spun OS image — Esri only supports the vendor's stock binaries.
+- On Ubuntu, the **`gettext-base`** package is required (on RHEL/Oracle it's `gettext`; on SUSE it's `gettext-runtime`) if you want to run the graphical installers, the ArcGIS Authorization Wizard, or the Check for Updates tool — all of which need an X Window System.
+
+> ⚠️ **Evaluation finding for this practice:** the VM built in Part 1 runs **Ubuntu Server 26.04.1 LTS**, which is **not on Esri's supported OS list** as of their documentation dated August 2026 — only 22.04 LTS and 24.04 LTS are listed. This isn't necessarily a hard technical blocker (the installers likely won't refuse outright), but it means **no official Esri support** and real risk of undocumented compatibility issues. For anything beyond casual experimentation, standardize on **Ubuntu Server 24.04 LTS**, or RHEL/Rocky/Alma 9 if your organization already runs a Red-Hat-family OS (still the most common real-world choice for ArcGIS Enterprise). Always re-check the live supported-OS table before a real install — it's updated with each Esri release.
+
+---
+
+## 2.4 Hardware and disk space planning
+
+These are Esri's **published minimums** — not production sizing targets. Esri deliberately avoids fixed "production" numbers, because load varies too much by organization; their own architecture guidance (see [2.5](#25-network-architecture-and-security-zones)) recommends starting from a reasonable mid-sized profile, load-testing with real workflows, then adjusting from measured data — rather than guessing a number up front.
+
+### Per-component minimums
+
+| Component | CPU | RAM | Disk |
+|---|---|---|---|
+| **ArcGIS Server** | — | 8 GB min | 10 GB min (≈1.5 GB used temporarily during install) |
+| **Portal for ArcGIS** | 2 cores min (dev/test); **4 cores recommended for production** | 8 GB min | 30 GB min (content grows with usage — plan separately) |
+| **Data Store — relational store** | — | 8 GB min | 13 GB min empty (grows ~200 MB/hour up to ~2.5 GB over the first 11 hours, *before* any real data) |
+| **Data Store — object store** | — | 16 GB min (**32 GB recommended** for better performance) | 27 GB min empty |
+| **Data Store — spatiotemporal big data store** | — | 16 GB min | 200 MB min empty, plus **20% of disk free** as scratch space during configuration/upgrade |
+| **Data Store — graph store** | Must support **AVX2** instruction set | 32 GB min | 100 MB min empty |
+| **ArcGIS Web Adaptor (Java, on Tomcat)** | — | No separate Esri minimum — sized with your JVM/Tomcat allocation (see [2.7](#27-apache-tomcat-and-arcgis-web-adaptor-java)) | Small (a few hundred MB for Tomcat + the deployed .war) |
+| **ArcGIS Enterprise Builder (all-in-one, Linux)** | — | **≥32 GB recommended** (48 GB if publishing hosted scene layers / 3D tiles) | **52 GB min** to install; **80 GB+ recommended per machine** for a production single-machine deployment |
+
+Operational disk thresholds worth planning around (ArcGIS Data Store, any type): once free space on a data store machine drops below **10 GB**, Data Store starts logging warnings (and emailing configured admin contacts, if notifications are set up); below **5 GB**, the relational/object/spatiotemporal stores go **read-only** and the graph store **shuts down**. Budget headroom accordingly — these aren't soft warnings you can ignore in production.
+
+### Applying this to our case study
+
+A reasonable **starting** profile for the 3-machine layout from [2.2](#22-esris-documented-base-deployment-architecture) — deliberately a step above the bare Esri minimums, in line with the "start mid-sized, measure, adjust" approach:
+
+| Machine | Role | CPU | RAM | Disk |
+|---|---|---|---|---|
+| 1 | Portal + Web Adaptor #1 | 4 cores | 16 GB | 60 GB (30 GB base + headroom for content growth) |
+| 2 | ArcGIS Server (hosting) + Web Adaptor #2 | 4–8 cores | 16 GB | 40 GB |
+| 3 | ArcGIS Data Store (relational + object store) | 4 cores | 32 GB | 150 GB+ (empty-store minimums + real data + backups) |
+
+Use a separate backup destination (network share or cloud storage) rather than storing backups on Machine 3 itself — see [2.11](#211-pre-deployment-checklist).
+
+### Reality check against the practice VM
+
+Comparing the Part 1 lab VM to Esri's **single-machine** (Enterprise Builder) minimums — the smallest legitimate way to run a full base deployment:
+
+| | Practice VM (Part 1) | Esri Enterprise Builder minimum | Gap |
+|---|---|---|---|
+| RAM | 6,406 MB (~6.4 GB) | ≥32,000 MB recommended | ~5x under |
+| Disk | 25 GB | 52 GB min / 80 GB+ recommended | 2–3x under |
+| OS | Ubuntu 26.04.1 LTS | Ubuntu 22.04/24.04 LTS (or RHEL-family) | Unsupported version |
+| CPUs | 4 | Not separately specified, but reasonable given the RAM gap above | — |
+
+**Conclusion:** the current VM is well suited to what it was built for — practicing Linux fundamentals, SSH, and remote administration — but it is **not sized to actually run** even a minimal ArcGIS Enterprise install. Resizing it substantially (16 GB+ RAM floor, 60–80 GB disk, Ubuntu 24.04 LTS) would be the next step if the goal shifts to installing the software for real.
+
+---
+
+## 2.5 Network architecture and security zones
+
+A production ArcGIS Enterprise deployment is normally split into three network tiers:
+
+```
+                    Internet / internal users
+                              │
+                    ┌─────────▼─────────┐
+   WEB TIER (DMZ)   │  Reverse proxy /   │   Only tier exposed
+                    │  ArcGIS Web Adaptor│   externally.
+                    │  on Apache Tomcat  │   Terminates HTTPS.
+                    └─────────┬─────────┘
+                              │  (internal ports only:
+                              │   6443, 7443, 2443…)
+                    ┌─────────▼─────────┐
+   GIS / APP TIER   │  Portal for ArcGIS │   Not exposed directly
+                    │  ArcGIS Server     │   to the internet.
+                    │  (hosting server)  │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+   DATA TIER        │  ArcGIS Data Store │   Most restricted zone;
+                    │  Enterprise geodb  │   no direct external access.
+                    └────────────────────┘
+```
+
+Key principles (from Esri's Architecture Center guidance, applied here):
+
+- **Only the web tier is internet-facing.** The Web Adaptor / reverse proxy is the single controlled entry point; it terminates HTTPS and forwards to the portal and hosting server over the internal ports listed in [2.6](#26-required-ports).
+- **Keep clients close to the system.** Latency between the web tier and the GIS/data tiers matters — many ArcGIS workflows fire multiple parallel requests, so keep these tiers on the same low-latency network/subnet rather than spanning slow links.
+- **Guard the boundary, don't block internal traffic.** Firewalls should sit *between* tiers (and at the internet edge), not inside a single machine — an over-aggressive host firewall blocking a machine's own internal ports is a common cause of "the site won't start" errors.
+- **A DNS/FQDN entry is required** for the machine hosting Portal for ArcGIS (this becomes the organization's URL — Portal only supports a single org URL). Give any federated server sites an FQDN too. If you'll use a "friendly" DNS name instead of the machine's real one, assign it **before** installing — changing it after the fact can break existing items.
+- **HTTPS is mandatory**, not optional. Portal and ArcGIS Server ship with self-signed certificates for initial testing; replace them with a CA-signed certificate (internal corporate CA or commercial) before going live, and *definitely* before federating a server site whose external URL needs to be trusted by clients.
+- **Web application firewalls (WAFs)** are fine and encouraged at the edge, but need careful tuning — overly strict rule sets can break legitimate ArcGIS REST traffic.
+
+Mapped onto our case study's 3 machines: Machine 1 (Portal + Web Adaptor) sits at the DMZ edge; Machine 2 (hosting server) and Machine 3 (Data Store) sit behind it on an internal-only subnet, reachable from Machine 1 but not directly from outside.
+
+---
+
+## 2.6 Required ports
+
+Every component communicates over a defined set of ports. Split them into two categories:
+
+- **Cross-machine ports** — must be opened in the OS firewall (and any network firewall) between the relevant machines.
+- **Local/internal ports** — must simply be *free* (not used by another process) on that one machine; nothing external needs to reach them directly.
+
+### ArcGIS Web Adaptor
+
+| Port | Purpose |
+|---|---|
+| 443 (HTTPS) | Default external port — what clients actually hit |
+| 80 (HTTP) | Default, typically redirects to 443 |
+
+### Portal for ArcGIS
+
+**External / primary:**
+
+| Port | Purpose |
+|---|---|
+| 7443 (HTTPS) | Primary portal communication (HTTPS enforced by default) |
+| 7080 (HTTP) | Only used if HTTP is explicitly re-enabled |
+
+**Intramachine (local only — must be free, not exposed):** 7005, 7099, 7120, 7220, 7654, 7820, 7830, 7840, 11211, plus 50432 (must be free during upgrades)
+
+**Ephemeral range (local, customizable):** 1024–5000 and 49152–65535
+
+**Cross-machine, highly-available portal only:** 50432, 7120, 7443, 7654, 7820, 7830, 7840, 11211 (plus 7080 if HTTP is enabled)
+
+### ArcGIS Server
+
+| Port | Purpose |
+|---|---|
+| 6443 (HTTPS) | Primary — external + cross-machine communication |
+| 6080 (HTTP) | Disabled (HTTPS-only) by default; can be re-enabled, less secure |
+| 6006 | Internal — **must be free**, cannot auto-increment if occupied (unlike the ports below) |
+| 1098, 6099, 6843 + other dynamic ports | Internal process startup; auto-increments to the next free port if the default is taken |
+
+### ArcGIS Data Store
+
+All data store types need:
+
+| Port | Purpose |
+|---|---|
+| 2443 (HTTPS) | Cross-machine data store communication; also used by the configuration wizard, the hosting server, and the `webgisdr` backup utility |
+| 6443 (HTTPS) | Outbound requests from Data Store to the hosting ArcGIS Server site |
+| 9006 | Internal web server — must be free locally |
+
+Additional ports **by data store type**:
+
+| Type | Ports |
+|---|---|
+| **Relational store** | 9876, 9840, 9820, 9850, 45671, 45672, 50432 (upgrades only), 25672, 44369 |
+| **Object store** | 29879, 19879 (HTTPS to hosting server); 19864, 29860–29863 (Hadoop RPC); 29858, 29859, 28981, 29895 (gRPC); 9856, 9857, 9872, 9886, 9894 (HTTP/2); 11211 |
+| **Spatiotemporal big data store** | 9220 (HTTPS, to hosting/federated servers and between cluster machines); 9320 (cluster-internal) |
+| **Graph store** | 9829 (ArcGIS Knowledge Server + cluster-internal); 9828, 9830, 9831 (cluster-internal) |
+
+### Applying this to our case study / practice environment
+
+On the 3-machine layout from [2.2](#22-esris-documented-base-deployment-architecture), the firewall rules you'd actually add *between* machines are:
+
+```bash
+# On Machine 2 (hosting server) — allow Machine 1 (Portal) and Machine 3 (Data Store) in on 6443
+sudo ufw allow from <machine-1-ip> to any port 6443 proto tcp
+sudo ufw allow from <machine-3-ip> to any port 6443 proto tcp
+
+# On Machine 1 (Portal) — allow Machine 2 in on 7443
+sudo ufw allow from <machine-2-ip> to any port 7443 proto tcp
+
+# On Machine 3 (Data Store) — allow Machines 1 and 2 in on 2443
+sudo ufw allow from <machine-1-ip> to any port 2443 proto tcp
+sudo ufw allow from <machine-2-ip> to any port 2443 proto tcp
+
+# ...and Machine 2 specifically on the relational-store ports
+sudo ufw allow from <machine-2-ip> to any port 9876 proto tcp
+sudo ufw allow from <machine-2-ip> to any port 9840 proto tcp
+sudo ufw allow from <machine-2-ip> to any port 9820 proto tcp
+sudo ufw allow from <machine-2-ip> to any port 9850 proto tcp
+```
+
+(On RHEL-family distros, the equivalent tool is `firewall-cmd`, e.g. `sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="<ip>" port port="6443" protocol="tcp" accept'` followed by `sudo firewall-cmd --reload`.)
+
+If you were to trial this on a single machine (like the current practice VM), none of the cross-machine rules above apply — only the Web Adaptor's 80/443 need to be reachable externally, since everything else talks to `localhost`.
+
+---
+
+## 2.7 Apache Tomcat and ArcGIS Web Adaptor (Java)
+
+On Linux, ArcGIS Web Adaptor is a Java web application (a `.war` file) deployed into a servlet container — in practice, **Apache Tomcat**. It's the piece that turns a bare Portal/Server install into something safely reachable from a browser, and it's also where web-tier authentication (LDAP, IWA, client certificates) gets configured if you need it.
+
+### Requirements
+
+| Requirement | Value |
+|---|---|
+| Application server | **Apache Tomcat 10.1.x** |
+| Java | **11 or later** (matched to whatever compliance level your Tomcat 10.1.x build requires) |
+| War file | `arcgis_tomcat10.war` for Tomcat 10.1.x. (`arcgis.war` is the file for Tomcat 9.0.x and other Java application servers, if integrating with something other than Tomcat 10.1.x.) |
+| Website prerequisite | A site already listening on port 80, with HTTPS enabled on 443, *before* the Web Adaptor is deployed |
+
+### Install steps (Linux, Tomcat)
+
+1. Install a supported JDK (11+) via your distro's package manager.
+2. Download and extract Apache Tomcat 10.1.x; run it as a **dedicated non-root service user** (e.g. `tomcat`), not as `root`.
+3. Configure Tomcat's HTTP connector on port 80 and an HTTPS connector on 443 (with a real certificate — see [2.5](#25-network-architecture-and-security-zones)) — or, more commonly in production, put Tomcat behind another reverse proxy (nginx / Apache HTTPD) that terminates TLS and forwards plain HTTP to Tomcat on an internal port.
+4. Run the ArcGIS Web Adaptor `Setup.sh` (silent or interactive) to extract the installer and license it.
+5. Copy the resulting `arcgis_tomcat10.war` into Tomcat's `webapps/` directory (or deploy it through the Tomcat Manager app) — Tomcat auto-expands it.
+6. Configure the deployed Web Adaptor with your Portal or ArcGIS Server, either through the browser (`https://<web-adaptor-host>/<name>/webadaptor`) or with the `configurewebadaptor` command-line tool. **If you use the command-line tool, Tomcat and the Web Adaptor must be on the same machine** — through-the-browser configuration doesn't have that restriction.
+7. Repeat for the second Web Adaptor instance (one for the portal, one for the hosting server) — each instance needs a **unique name**; two Web Adaptors named `arcgis` can't coexist on the same site/port.
+
+### Tomcat hardening notes (general best practice, not ArcGIS-specific)
+
+- Remove or disable the default Tomcat sample apps (`/examples`, `/docs`, `/manager`, `/host-manager`) in production, or at minimum restrict `/manager` to `localhost` with a strong password.
+- Run Tomcat under a low-privilege OS account with write access only to its own directories.
+- Avoid leaking the exact Tomcat version in response headers — it reduces reconnaissance value for anyone scanning for known CVEs.
+- Keep Tomcat patched — it's a common target precisely because it's the one component directly exposed in this architecture (see [2.5](#25-network-architecture-and-security-zones)).
+- Size the JVM heap (`-Xms`/`-Xmx` in `CATALINA_OPTS` or `setenv.sh`) deliberately rather than leaving JVM defaults — a couple of GB is typically plenty for the Web Adaptor's proxying role; it isn't doing heavy computation itself.
+
+---
+
+## 2.8 Linux OS-level prerequisites
+
+Beyond disk/RAM, several OS-level settings are **required**, not optional, for ArcGIS Enterprise components to run reliably on Linux:
+
+| Setting | Requirement | Where |
+|---|---|---|
+| Install user | Non-root, with a home directory (Web Adaptor config is written there) | OS user setup |
+| File handle limit (`nofile`) | **≥ 65,535** (Server, Portal); **65,536** (spatiotemporal big data store) | `/etc/security/limits.conf` |
+| Process limit (`nproc`) | **≥ 25,059** | `/etc/security/limits.conf` |
+| systemd defaults | `DefaultLimitNOFILE=65536`, `DefaultLimitNPROC=25059` | `/etc/systemd/system.conf` |
+| Graph store file/process limits | `unlimited` | `/etc/security/limits.conf` |
+| Spatiotemporal store file size / virtual memory | `fsize unlimited`, `as unlimited` | `/etc/security/limits.conf` |
+| `vm.max_map_count` | **≥ 262144** (spatiotemporal big data store) | `/etc/sysctl.conf` |
+| `vm.swappiness` | **1** (spatiotemporal big data store) | `/etc/sysctl.conf` |
+| CPU instruction set | **AVX2 required** for any machine running the graph store | Hardware/CPU |
+| SELinux | Supported; if the default policy blocks ArcGIS Server from reaching internal components (e.g. the configuration store), temporarily set to `permissive`, capture the denials, adjust the policy, then re-enable `enforcing` | RHEL-family only |
+| Filesystem | **ext4 or xfs** recommended. `ext3` caps the portal content directory at ~32,000 items/subfolders. `btrfs` is supported only if metadata space is adequate (check with `btrfs filesystem df /`) | Install/content volumes |
+| `/tmp` space | Default extraction/temp location; if too small, redirect via the `IATEMPDIR` (install-time) and `TMPDIR` (runtime: SD file publishing, upgrade backups) environment variables | Shell environment |
+| GUI installer dependency (Ubuntu) | `gettext-base` package, plus an X Window System, if you'll run the graphical setup wizards | `apt install gettext-base` |
+
+Example `/etc/security/limits.conf` block for an ArcGIS Server install user:
+
+```
+arcgis soft nofile 65535
+arcgis hard nofile 65535
+arcgis soft nproc 25059
+arcgis hard nproc 25059
+```
+
+Example `/etc/sysctl.conf` additions for a spatiotemporal big data store machine:
+
+```
+vm.max_map_count = 262144
+vm.swappiness = 1
+```
+
+After any of these changes, the affected user must **log out and back in** (for ulimits) and the ArcGIS Data Store service must be **restarted** for the new limits to take effect.
+
+---
+
+## 2.9 Installation and configuration sequence
+
+Esri documents a specific order for standing up a base deployment. Following it (rather than improvising) avoids a lot of avoidable federation/authentication headaches:
+
+1. **Install Portal for ArcGIS** on Machine 1.
+2. **Create the ArcGIS Enterprise organization** — single machine, or two machines if the portal itself should be HA from day one.
+3. **Install and configure a Web Adaptor (or reverse proxy)** for the portal.
+4. **Install ArcGIS Server** on Machine 2, licensed as **ArcGIS GIS Server** (Standard or Advanced).
+5. **Create the GIS Server site.**
+6. **Install and configure the second Web Adaptor** for that server site.
+7. **Federate the GIS Server site with the portal.** (Federating hands control of security — users, roles, permissions — to the portal; any access rules configured directly on ArcGIS Server before federation stop applying.)
+8. **Configure the federated site as the hosting server** for the organization.
+9. **Install and configure ArcGIS Data Store** on Machine 3 — at minimum a relational store; add the object store (or point at S3/Azure Blob if in the cloud) to complete the base deployment.
+10. **Replace the self-signed certificates** with CA-signed ones on the portal and Web Adaptors ([2.5](#25-network-architecture-and-security-zones)).
+11. **Configure backups** — the portal's built-in backup utility (fed by `webgisdr`) and `backupdatastore` for the data store(s) — to a location separate from the machines themselves.
+12. **Federate any additional specialized server sites** later as needed (GeoEvent Server, Notebook Server, Knowledge Server, etc.) — each has its own system-requirements and port page.
+
+### Example: silent ArcGIS Server install on Linux
+
+For scripting/automation (e.g. Chef, Ansible, or your own shell scripts), ArcGIS Server supports a silent install:
+
+```bash
+# Run as the dedicated non-root install user, from the extracted installer directory
+./Setup -m silent -l yes -a /path/to/your/authorization-file.ecp
+```
+
+`-m silent` skips the GUI, `-l yes` accepts the license agreement, and `-a` points at your authorization (`.ecp`) or provisioning (`.prvc`) file obtained from My Esri. Portal for ArcGIS and ArcGIS Data Store have their own equivalent `Setup -m silent -l yes […]` invocations, documented on their respective installation pages.
+
+---
+
+## 2.10 Mapping this to your practice VM
+
+Being direct about where the Part 1 lab environment stands relative to everything above:
+
+- **What it's good for right now:** practicing Linux fundamentals, SSH, systemd services, firewall rules, and general remote administration via MobaXterm — all genuinely transferable skills for managing any of the three machines in [2.2](#22-esris-documented-base-deployment-architecture).
+- **What it can't do yet:** run even a minimal single-machine ArcGIS Enterprise install. The RAM (6.4 GB vs. a recommended 32 GB) and disk (25 GB vs. a required 52 GB minimum) are both well under Esri's numbers, and the OS version (Ubuntu 26.04) isn't on the supported list.
+- **Licensing:** every path below still requires a valid ArcGIS Enterprise license and authorization file from **My Esri** — there's no way around that even with correctly sized hardware. If you don't already have organizational access, Esri offers time-limited trial licensing; that's the realistic starting point before any of this can actually be installed.
+
+Two realistic next steps, depending on the goal:
+
+1. **Just want to see the installers run (single machine):** resize this VM to 16 GB+ RAM (32 GB to match Esri's recommendation) and 60–80 GB disk, and reinstall with **Ubuntu Server 24.04 LTS** instead of 26.04. This gets you a supported, minimally-viable target for ArcGIS Enterprise Builder.
+2. **Want to practice the real architecture (federation, ports, network zones):** better to run **three smaller VMs** (Portal / Server / Data Store, each 8–16 GB depending on what it hosts) than one large one — that's the only way to actually exercise the cross-machine ports in [2.6](#26-required-ports) and the tiered network design in [2.5](#25-network-architecture-and-security-zones). If local hardware is the constraint, Esri's **ArcGIS Enterprise Cloud Builder** (AWS and Azure) automates a multimachine deployment in the cloud and is worth evaluating as an alternative to hand-building VMs.
+
+---
+
+## 2.11 Pre-deployment checklist
+
+- [ ] Valid ArcGIS Enterprise license + authorization files obtained from My Esri (one per component/machine)
+- [ ] OS confirmed on Esri's current supported list ([2.3](#23-supported-linux-operating-systems)) — re-check at install time, not just from this document
+- [ ] Non-root install user created, with a home directory, on every machine
+- [ ] Hostnames contain no underscores; FQDN/DNS entries created for the portal (and any server sites to be federated)
+- [ ] Hardware sized against both the Esri minimums and the "reality check" numbers in [2.4](#24-hardware-and-disk-space-planning) — not just the bare minimums
+- [ ] Filesystem is ext4 or xfs (not ext3) on install/content volumes
+- [ ] File handle / process limits configured (`/etc/security/limits.conf` + systemd defaults) — [2.8](#28-linux-os-level-prerequisites)
+- [ ] `vm.max_map_count` / `vm.swappiness` set if a spatiotemporal big data store is in scope
+- [ ] AVX2 confirmed on CPU if a graph store (ArcGIS Knowledge Server) is in scope
+- [ ] Network tiers defined and firewall rules mapped to the actual port tables in [2.6](#26-required-ports) — not "open everything between the app and data tiers"
+- [ ] CA-signed certificates ready (or a plan for an internal CA) to replace the default self-signed certs before go-live
+- [ ] Tomcat installed and hardened per [2.7](#27-apache-tomcat-and-arcgis-web-adaptor-java) on the machine(s) hosting the Web Adaptor
+- [ ] Backup destination decided — separate from the machines being backed up (see [2.4](#24-hardware-and-disk-space-planning)) — local share or cloud storage, tested at least once before go-live
+
+---
+
+## 2.12 Sources
+
+This guide restates and reorganizes (in this document's own words, not verbatim) Esri's officially published documentation, current as of the dates shown. Always check the live pages before a real deployment — Esri updates system requirements and supported-OS tables with each release.
+
+- ArcGIS Enterprise system requirements — https://doc.esri.com/en/arcgis-enterprise/latest/plan/arcgis-enterprise-overall-system-requirements.html
+- Required ports — https://doc.esri.com/en/arcgis-enterprise/latest/plan/ports-overall.html
+- Base ArcGIS Enterprise deployment — https://doc.esri.com/en/arcgis-enterprise/latest/plan/base-arcgis-enterprise-deployment.html
+- Required system storage — https://doc.esri.com/en/arcgis-enterprise/latest/plan/required-system-storage.html
+- Install ArcGIS Web Adaptor — https://doc.esri.com/en/arcgis-enterprise/latest/deploy/web-adaptor/install-arcgis-web-adaptor.html
+- Deploy individual components (install sequence) — https://doc.esri.com/en/arcgis-enterprise/latest/deploy/deploy-individual-components.html
+- Silently install ArcGIS Server — https://doc.esri.com/en/arcgis-enterprise/latest/deploy/silently-install-arcgis-server.html
+- Physical design considerations — ArcGIS Architecture Center — https://architecture.arcgis.com/en/framework/architecture-practices/architecture-foundations/physical-design-considerations.html
