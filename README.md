@@ -289,6 +289,7 @@ This second part documents a separate but related exercise: planning and evaluat
 
 ## Contents
 
+- [2.0 What you'd actually need for a real attempt](#20-what-youd-actually-need-for-a-real-attempt)
 - [2.1 The scenario we're designing for](#21-the-scenario-were-designing-for)
 - [2.2 Esri's documented base deployment architecture](#22-esris-documented-base-deployment-architecture)
 - [2.3 Supported Linux operating systems](#23-supported-linux-operating-systems)
@@ -301,6 +302,22 @@ This second part documents a separate but related exercise: planning and evaluat
 - [2.10 Mapping this to your practice VM](#210-mapping-this-to-your-practice-vm)
 - [2.11 Pre-deployment checklist](#211-pre-deployment-checklist)
 - [2.12 Sources](#212-sources)
+
+---
+
+## 2.0 What you'd actually need for a real attempt
+
+Direct answer to "what do I actually need for this": with a single local VM, you're right that installing Portal, Web Adaptor, ArcGIS Server, or Data Store for real isn't realistic yet. Three things are non-negotiable before any of them can even be installed — none of which a local-only lab VM can provide by itself:
+
+1. **A license.** Every one of these components requires an ArcGIS Enterprise license and an authorization file from **My Esri** (my.esri.com). There's no local/offline workaround — even a time-limited trial requires an Esri (or organizational) account. Without this, the installers simply won't authorize.
+2. **Enough hardware.** One adequately-sized machine (ArcGIS Enterprise Builder: ≥32 GB RAM, 52 GB+ disk — see [2.4](#24-hardware-and-disk-space-planning)) for a single-machine trial, or several smaller machines if you want to practice the real multi-machine architecture ([2.2](#22-esris-documented-base-deployment-architecture)).
+3. **A supported OS.** Ubuntu 24.04/22.04 LTS, or a RHEL-family distro ([2.3](#23-supported-linux-operating-systems)) — the current VM's Ubuntu 26.04 isn't on Esri's list.
+
+None of these are things this lab environment currently has — **and that's fine.** With just one local VM, the realistic goal right now is architectural understanding, not installation. What you *can* do with what you already have:
+
+- Study the component relationships and data flow below — including the diagram — until you could redraw it from memory.
+- Practice the pieces that don't require an ArcGIS license at all: install and harden Apache Tomcat on the existing VM ([2.7](#27-apache-tomcat-and-arcgis-web-adaptor-java)), write out the `ufw`/`firewall-cmd` rules from [2.6](#26-required-ports) against made-up IPs, and apply the file-handle/sysctl tuning from [2.8](#28-linux-os-level-prerequisites) — all genuinely transferable to the day a license and real hardware are available.
+- If/when a trial or organizational license shows up, come back to [2.10](#210-mapping-this-to-your-practice-vm) for concrete next steps sized to what you'd have at that point.
 
 ---
 
@@ -331,6 +348,40 @@ A **base ArcGIS Enterprise deployment** — the minimum functional unit — cons
 | **ArcGIS Data Store** — relational store | Stores hosted feature layer data |
 | **Object store** | Stores hosted scene/3D tile caches and cached query responses (via ArcGIS Data Store, or a cloud object store such as S3/Azure Blob if deployed in the cloud) |
 | **2× ArcGIS Web Adaptor** | One in front of the portal, one in front of the hosting server — reverse-proxies traffic and enables web-tier authentication (a third-party load balancer can replace both) |
+
+### Component and data-flow diagram
+
+```mermaid
+flowchart TD
+    Client(["Browser / mobile app<br/>client"])
+
+    subgraph WEB["Web tier (DMZ)"]
+        WA1["Web Adaptor #1<br/>Apache Tomcat"]
+        WA2["Web Adaptor #2<br/>Apache Tomcat"]
+    end
+
+    subgraph GIS["GIS / app tier"]
+        Portal["Portal for ArcGIS"]
+        Server["ArcGIS Server<br/>(hosting server)"]
+    end
+
+    subgraph DATA["Data tier"]
+        DSR[("ArcGIS Data Store<br/>Relational store")]
+        DSO[("ArcGIS Data Store<br/>Object store")]
+        EGDB[("Enterprise geodatabase<br/>e.g. PostgreSQL")]
+    end
+
+    Client -->|HTTPS 443| WA1
+    Client -->|HTTPS 443| WA2
+    WA1 -->|HTTPS 7443| Portal
+    WA2 -->|HTTPS 6443| Server
+    Portal <-->|Federation| Server
+    Server -->|HTTPS 2443| DSR
+    Server -->|HTTPS 2443| DSO
+    Server -.->|registered data source| EGDB
+```
+
+**Legend:** solid arrows are HTTPS traffic between components, labeled with the relevant port from [2.6](#26-required-ports); the dashed arrow shows an external enterprise geodatabase registered as a data source — it lives outside ArcGIS Data Store and outside this base deployment.
 
 ### Deployment topologies
 
